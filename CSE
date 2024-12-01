@@ -1,0 +1,504 @@
+#ifndef APPLICATION_H
+#define APPLICATION_H
+#include <FL/Enumerations.H>
+#include <bobcat_ui/bobcat_ui.h>
+#include <bobcat_ui/window.h>
+#include <bobcat_ui/button.h>
+#include <bobcat_ui/textbox.h>
+#include <sstream>
+#include <vector>
+#include <string>
+#include <algorithm>
+#include <fstream>
+#include <iostream>
+#include <bobcat_ui/list_box.h>
+
+namespace bobcat {
+class Application : public Application_ {
+    Window* window;
+    Button* startGameButton;
+    Button* instructionManualButton;
+    Button* gameStatsButton;
+    Button* backToMainMenuButton;
+    TextBox* heading;
+    TextBox* instructionManualText;
+    std::vector<Button*> keyboard;
+    std::vector<std::vector<TextBox*>> letterGrids;
+    Button* deleteButton;
+    Button* enterButton;
+    int currentTry;
+    std::string currentGuess;
+    std::string targetWord;
+    std::string filename;
+    std::string currentScreen;
+    std::string lastGuess;
+
+    TextBox* ListBoxFormat;
+    ListBox* rosterListbox;
+    std::vector<std::string> rosterVector;
+
+    int totalWins = 0;
+    int totalLosses = 0;
+    int longestStreak = 0;
+    TextBox* totalGamesPlayed;
+    TextBox* totalWinsTextBox;
+    TextBox* totalLossesTextBox;
+    TextBox* longestStreakTextBox;
+
+   //ListBox
+   //correctWord, Win/Loss, tries, your Guess
+   //correctWord, Win/Loss, tries, your Guess
+   //correctWord, Win/Loss, tries, your Guess
+   //correctWord, Win/Loss, tries, your Guess
+   //correctWord, Win/Loss, tries, your Guess
+ 
+   //outside ListBox
+   //Longest Streak
+   //Average Attempt per word
+   //Total Wins
+   //Total Losses
+
+
+ void setupMenu() {
+     heading = new TextBox(10, 40, 380, 25, "Classic Wordie");
+     heading->align(FL_ALIGN_CENTER);
+     heading->labelsize(20);
+     heading->labelfont(FL_HELVETICA);
+     startGameButton = new Button(20, 100, 360, 30, "Play Game");
+     startGameButton->labelfont(FL_TIMES);
+     instructionManualButton = new Button(20, 150, 360, 30, "Instruction Manual");
+     instructionManualButton->labelfont(FL_TIMES);
+
+     //   rosterListbox = new ListBox(20, 75, 360, 150);
+
+     ListBoxFormat = new TextBox(20, 75, 360, 30, "Correct Word, Win/Lose, Tries, Your Guess");
+     ListBoxFormat->labelfont(FL_TIMES);
+     rosterListbox = new ListBox(20, 100, 360, 125);
+
+     totalGamesPlayed = new TextBox(20, 260, 100, 30, "Total Games: ");
+     totalGamesPlayed->labelfont(FL_TIMES);
+     totalWinsTextBox = new TextBox(20, 280, 100, 30, "Total Wins: ");
+     totalWinsTextBox->labelfont(FL_TIMES);
+     totalLossesTextBox = new TextBox(20, 300, 100, 30, "Total Losses: ");
+     totalLossesTextBox->labelfont(FL_TIMES);
+     longestStreakTextBox = new TextBox(20, 320, 100, 30, "Longest Streak: ");
+     longestStreakTextBox->labelfont(FL_TIMES);
+
+     gameStatsButton = new Button(20, 200, 360, 30, "Game Statistics");
+     gameStatsButton->labelfont(FL_TIMES);
+     ON_CLICK(startGameButton, handleNavigationClick);
+     ON_CLICK(instructionManualButton, handleNavigationClick);
+     ON_CLICK(gameStatsButton, handleNavigationClick);
+     //   instructionManualText = new TextBox(20, 70, 360, 200,
+     //   "How To Play\n\nGuess the Classic Wordie in 6 tries.\n\nEach guess must be a valid 5-letter word.\nThe color of the tiles change to show how close  guess was.\n\nGreen: Correct spot.\nYellow: Wrong spot.\nRed: Not in word.");
+     instructionManualText = new TextBox(20, 70 , 360, 200, "How to Play Classic Wordie?\n\nYou have 6 tries to guess the word \nEach guess must be a valid 5-letter word from the \nallowed.txt file.The color of the letter \nrepresents whether how close your guess was\nGreen: Correct Spot\nYellow: Wrong Spot\nRed: Not in the Word");
+     instructionManualText->labelsize(12);
+     instructionManualText->labelfont(FL_TIMES);
+ }
+
+
+ void setupGame() {
+    // Letter grids
+     int gridSize = 35, spacing = 5;
+     int totalGridHeight = 6 * (gridSize + spacing);
+     int offsetY = (window->h() - totalGridHeight) / 2 - 50;
+     for (int i = 0; i < 6; i++) {
+         std::vector<TextBox*> row;
+         for (int j = 0; j < 5; j++) {
+         int n = (window->w() - (5 * (gridSize + spacing))) / 2 + j * (gridSize + spacing);
+         int y = offsetY + i * (gridSize + spacing) - 30;
+         auto* box = new TextBox(n, y, gridSize, gridSize, "_");
+         box->labelsize(18);
+         box->align(FL_ALIGN_CENTER);
+         box->box(FL_FLAT_BOX);
+         row.push_back(box);
+     }
+     letterGrids.push_back(row);
+ }
+     // Keyboard
+     int yOffset = 275;
+     setupKeyboard(yOffset);
+     // Place Main Menu button dynamically between Delete and Enter buttons
+     int buttonWidth = 100;
+     int buttonHeight = 30;
+     int yButtons = yOffset - 40; // Matches the Y position of GO and Delete
+     // Calculate X position to center between Delete and Enter buttons
+     int xDelete = (window->w() / 2) - 70 - 60; // X of Delete button
+     int xEnter = (window->w() / 2) + 70;          // X of Enter button
+     int xMainMenu = (xDelete + xEnter + 60) / 2 - (buttonWidth / 2);
+     backToMainMenuButton = new Button(xMainMenu, yButtons, buttonWidth, buttonHeight, "Main Menu");
+
+     ON_CLICK(backToMainMenuButton, handleNavigationClick);
+ }
+
+ void setupKeyboard(int y) {
+     std::vector<std::string> row1 = {"Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"};
+     std::vector<std::string> row2 = {"A", "S", "D", "F", "G", "H", "J", "K", "L"};
+     std::vector<std::string> row3 = {"Z", "X", "C", "V", "B", "N", "M"};
+     setupKeyboardRow(row1, y);
+     setupKeyboardRow(row2, y + 40);
+     setupKeyboardRow(row3, y + 80);
+     // Adjust Enter/Delete placement further up
+     int buttonWidth = 60;
+     int buttonHeight = 30;
+     int spacing = 10;
+     // New Y position for buttons (move the previous height twice upwards)
+     int yButtons = y - 40; // Previously y + 50; moved up by an additional 20
+     int xDelete = (window->w() / 2) - 70 - buttonWidth; // Left of center
+     int xEnter = (window->w() / 2) + 70;                  // Right of center
+     deleteButton = new Button(xDelete, yButtons, buttonWidth, buttonHeight, "Delete");
+     deleteButton->labelfont(FL_TIMES);
+     enterButton = new Button(xEnter, yButtons, buttonWidth, buttonHeight, "GO");
+     enterButton->labelfont(FL_TIMES);
+
+     ON_CLICK(deleteButton, handleDelete);
+     ON_CLICK(enterButton, handleEnter);
+ }
+
+
+ void setupKeyboardRow(const std::vector<std::string>& keys, int y) {
+     int buttonSize = 28; // Reduced size from 30 to 28
+     int spacing = 4;     // Reduced spacing from 5 to 4
+     int startM = (window->w() - (keys.size() * (buttonSize + spacing))) / 2;
+         for (const auto& key : keys) {
+         auto* button = new Button(startM, y, buttonSize, buttonSize, key);
+         keyboard.push_back(button);
+         ON_CLICK(button, handleKeyboardClick);
+         startM += buttonSize + spacing;
+     }
+ }
+
+ void handleNavigationClick(Widget* sender) {
+     if (sender == startGameButton) {
+        setcurrentScreen("Game");
+     } else if (sender == instructionManualButton) {
+        setcurrentScreen("Instruction Manual");
+     } else if (sender == gameStatsButton) {
+        setcurrentScreen("Game Statistics");
+     } else if (sender == backToMainMenuButton) {
+        resetGame(); // Reset the game when going back to the main menu
+        setcurrentScreen("Main Menu");
+     }
+ }
+ void handleKeyboardClick(Widget* sender) {
+     if (currentGuess.size() < 6) {
+         currentGuess += sender->label();
+         int pos = currentGuess.size() - 1;
+         letterGrids[currentTry][pos]->label(sender->label());
+     }
+ }
+ void handleDelete(Widget* sender) {
+     if (!currentGuess.empty()) {
+         int pos = currentGuess.size() - 1;
+         letterGrids[currentTry][pos]->label("_");
+         currentGuess.pop_back();
+     }
+ }
+   void getGameStats(){
+         std::fstream file("./contacts.csv");
+         std::string line;
+         std::stringstream ss;
+         std::string temp;
+
+         int found;
+         int currentLongest = 0;
+         int totalLines = 0;
+         int totalAttempts = 0;
+         while(getline(file, line)){
+             totalLines += 1;
+             std::string word = line.substr(0, 5);
+             if(line.find("You Won") != std::string::npos){
+               totalWins += 1;
+               currentLongest += 1;
+             }
+             else if (line.find("You Lost") != std::string::npos) { // Assuming "lost" indicates a loss
+               totalLosses += 1;
+               currentLongest = 0;
+             }
+             if (currentLongest > longestStreak){
+               longestStreak = currentLongest;
+             }
+
+         //     size_t pos = line.find_last_of(", ");
+         // if (pos != std::string::npos && pos + 1 < line.size()) {
+         //     try {
+         //         int num = std::stoi(line.substr(pos + 1));
+         //         if (num != 0) {
+         //             totalAttempts += num;
+         //        }
+         //     } catch (const std::invalid_argument& e) {
+         //         std::cerr << "Invalid number found in line: " << line << std::endl;
+         //     } catch (const std::out_of_range& e) {
+         //         std::cerr << "Number out of range in line: " << line << std::endl;
+         //     }
+         // }
+         }
+
+     }
+
+ void updateGameStatsTextBoxes(){
+
+     getGameStats();
+     totalGamesPlayed->label("Total Games Played: " + std::to_string(totalWins + totalLosses));
+     totalGamesPlayed->labelfont(FL_TIMES);
+     totalWinsTextBox->label("Total Wins: " + std::to_string(totalWins));
+     totalWinsTextBox->labelfont(FL_TIMES);
+     totalLossesTextBox->label("Total Losses: " + std::to_string(totalLosses));
+     totalLossesTextBox->labelfont(FL_TIMES);
+     longestStreakTextBox->label("Longest Streak:  " + roundFloat(longestStreak));
+     longestStreakTextBox->labelfont(FL_TIMES);
+     }
+
+ void handleEnter(Widget* sender) {
+     if (currentGuess.size() == 6) {
+     lastGuess = currentGuess;
+       if(checkIfWordAllowed()){
+         // showMessage("targetWord: " + targetWord);
+         // Compare current guess with the target word
+         std::vector<char> targetClassicWordieletters(targetWord.begin(), targetWord.end());
+         std::vector<bool> correctFlags(5, false);
+
+       // Step 1: Check for exact matches (green)
+       for (int i = 0; i < 6; i++) {
+           if (currentGuess[i] == targetWord[i]) {
+               // showMessage("Entered Green: " + targetWord[i]);
+               letterGrids[currentTry][i]->color(FL_GREEN);  // Color green for correct spot
+               correctFlags[i] = true;
+               targetClassicWordieletters[i] = '_'; // Mark this letter as used
+           } else {
+               letterGrids[currentTry][i]->color(FL_BACKGROUND_COLOR);  // Reset color if not correct
+           }
+       }
+
+       // Step 2: Check for misplaced letters (yellow)
+       for (int i = 0; i < 6; i++) {
+           // showMessage("Entered Yellow");
+           if (!correctFlags[i] && std::find(targetClassicWordieletters.begin(), targetClassicWordieletters.end(), currentGuess[i]) != targetClassicWordieletters.end()) {
+               // showMessage("Entered Yellow: " + targetWord[i]);
+               letterGrids[currentTry][i]->color(FL_YELLOW);  // Color yellow for misplaced
+               // Mark this letter as used in the target word
+               targetClassicWordieletters[std::find(targetClassicWordieletters.begin(), targetClassicWordieletters.end(), currentGuess[i]) - targetClassicWordieletters.begin()] = '_';
+             }
+        }
+
+         // Step 3: Mark incorrect letters (red)
+         for (int i = 0; i < 6; i++) {
+             if (!correctFlags[i] && letterGrids[currentTry][i]->color() == FL_BACKGROUND_COLOR) {
+               // showMessage("Entered Red");
+               letterGrids[currentTry][i]->color(FL_RED);  // Color red for incorrect letters
+             }
+         }
+
+         // Step 4: Force a redraw to show the updated colors
+         window->redraw(); // This will update the window with the new colors
+
+
+         // Step 5: Short pause to allow user to see the colored letters
+         Fl::wait(2); // Wait for 1 second (adjust as needed)
+
+
+         // Step 6: Check for win/lose condition
+         if (currentGuess == targetWord) {
+             showEndMessage("Congratulations! You've guessed the right word.");
+         
+             std::ofstream file("./contacts.csv" , std::ios::app);
+             file << targetWord << " You Win " << currentTry + 1  << std::endl;
+
+
+         } else if (++currentTry == 6) {
+             showEndMessage("Game Over! The word was: " + targetWord);
+             std::ofstream file("./contacts.csv" , std::ios::app);
+             showMessage("Last current guess: " + currentGuess);
+             file << targetWord << ", You Lose, " << currentTry << ", " << lastGuess << std::endl;
+
+         } else {
+             currentGuess.clear(); // Clear the guess for the next attempt
+         }
+
+         window->redraw(); // Redraw again to ensure all elements are updated properly
+       }
+       else{
+           showMessage("This word: " + currentGuess + " is not in the .txt file");
+           for(int i = 0; i < 6; i++){
+               letterGrids[currentTry][i]->label("_");
+             }
+           currentGuess.clear();
+         }
+     }
+ }
+
+void updateListbox(){
+         rosterListbox->clear();
+         std::fstream file("./contacts.csv");
+
+         if (file.is_open()) {
+             std::string line;
+             while(getline(file, line)) {
+             rosterListbox->add(line);
+           }
+         }
+         file.close();
+     }
+
+
+ void setcurrentScreen(const std::string& view) {
+     currentScreen = view;
+     updateDisplay();
+ }
+ void updateDisplay() {
+     hideAll();
+     if (currentScreen == "menu") {
+         heading->show();
+         startGameButton->show();
+         instructionManualButton->show();
+         gameStatsButton->show();
+         totalWins = 0;
+         totalLosses = 0;
+         longestStreak = 0;
+     } else if (currentScreen == "Instruction Manual") {
+         heading->label("Instruction Manual");
+         heading->show();
+         instructionManualText->show();
+         backToMainMenuButton->show();
+     } else if (currentScreen == "Game") {
+         for (auto& row : letterGrids) {
+             for (auto* box : row) box->show();
+         }
+         for (auto* button : keyboard) button->show();
+         deleteButton->show();
+         enterButton->show();
+         backToMainMenuButton->show();
+         targetWord = generateWord();
+     } else if (currentScreen == "Game Stats") {
+         heading->label("Game Statistics");
+         heading->show();
+         rosterListbox->show();
+         backToMainMenuButton->show();
+         totalLossesTextBox->show();
+         totalWinsTextBox->show();
+         longestStreakTextBox->show();
+         ListBoxFormat->show();
+         totalGamesPlayed->show();
+         updateListbox();
+         updateGameStatsTextBoxes();
+     }
+ }
+ void hideAll() {
+     totalGamesPlayed->hide();
+     ListBoxFormat->hide();
+     rosterListbox->hide();
+     heading->hide();
+     startGameButton->hide();
+     instructionManualButton->hide();
+     gameStatsButton->hide();
+     instructionManualText->hide();
+     for (auto& row : letterGrids) {
+         for (auto* box : row) box->hide();
+     }
+     for (auto* button : keyboard) button->hide();
+     deleteButton->hide();
+     enterButton->hide();
+     backToMainMenuButton->hide();
+     totalLossesTextBox->hide();
+     totalWinsTextBox->hide();
+     longestStreakTextBox->hide();
+   }
+
+   void showEndMessage(const std::string& message) {
+       fl_message("%s", message.c_str());
+       // Reset the game state for a new round
+       currentTry = 0;
+       currentGuess.clear();
+       for (auto& row : letterGrids) {
+           for (auto* box : row) {
+               box->label("_");
+               box->color(FL_BACKGROUND_COLOR);  // Reset color to default
+           }
+       }
+           // Optionally generate a random word instead of keeping it static
+       setcurrentScreen("Main Menu");  // Go back to the main menu
+     }
+
+
+ void resetGame() {
+     // Reset the grid (clear all the labels and colors)
+     currentTry = 0;
+     currentGuess.clear();
+     for (auto& row : letterGrids) {
+         for (auto* box : row) {
+         box->label("_");
+         box->color(FL_BACKGROUND_COLOR); // Reset color to default
+         }
+     }
+     // Optionally, generate a new target word or keep it static
+     // Reset the keyboard (this step is technically optional as the keys don't change)
+     for (auto* button : keyboard) {
+       button->color(FL_BACKGROUND_COLOR); // Reset any previous color states if needed
+     }
+     currentGuess.clear();
+     }
+
+
+ bool checkIfWordAllowed(){
+     std::fstream file(filename);
+     std::string line;
+
+
+         std::string lowerCaseCurrentGuess;
+         for (int i = 0; i < 6; i++){
+         lowerCaseCurrentGuess += tolower(currentGuess[i]);
+         
+         }
+         showMessage(lowerCaseCurrentGuess);
+
+     while(getline(file, line)){
+         if(line == lowerCaseCurrentGuess){
+             return true;
+             };
+         }
+
+
+       return false;
+     };
+
+ std::string generateWord(){
+         std::fstream file(filename);
+         srand ( time(NULL) );
+         int whatLine = rand() % 10657 + 1;
+         std::string newTargetWord;
+         showMessage(std::to_string(whatLine));
+         int beginning = 0;
+         if(file.is_open()){
+           // showMessage("in file");
+           std::string line;
+           while(getline(file, line) && beginning != whatLine){
+             beginning += 1;
+             }
+             newTargetWord = line;
+         }
+     std::string fixedTargetWord;
+
+
+     for(int i = 0; i < 6; i++){
+         fixedTargetWord += toupper(newTargetWord[i]);
+         }
+     
+         showMessage("fixedTargetWord: " + fixedTargetWord);
+         return fixedTargetWord;
+     }
+
+public:
+ Application() {
+     theme();
+     window = new Window(100, 100, 400, 400, "Classic Wordie");
+     setupMenu();
+     setupGame();
+     filename = "./allowed.txt";
+     currentTry = 0;
+     currentGuess = "";
+     setcurrentScreen("menu");
+     window->show();
+ }
+ };
+ }
+ #endif
